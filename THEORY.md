@@ -340,6 +340,11 @@ A theory that claims total grift-immunity is itself a grift. The hard limits:
    The defense is to treat the *curation/surfacing layer itself* as subject to M3
    (auditable) and M4 (contestable) recursively — but this is the load-bearing
    unsolved layer, the successor to the now-defused permanent-doubt attack.
+   Worked through in `MODERATION.md`: unbundle the six powers, offer plural legible
+   lenses instead of one feed, label *form* but never *truth*, make every curation
+   act a contestable entry, and mechanize the rule-bound while sortitioning the
+   discretionary — reducing it to G6 made expensive and visible, with two named
+   residual leaks (the default lens and the watchdog-minority dependency).
 
 The correct posture is not "grift is impossible here" but **"grift here has
 negative expected value, capture is expensive and visible, and the residual

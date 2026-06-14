@@ -19,7 +19,12 @@ This repository is, for now, a body of **design theory** — not yet code.
    joint: Sybil-resistant nomination without surveillance. Vouching graphs, the
    sparse cut, staked vouches, stratified pools, correlation de-weighting, the
    zero-knowledge attestation route, and the irreducible seed-set trust root.
-3. **[LINEAGE.md](LINEAGE.md)** — prior statecraft and political thought that
+3. **[MODERATION.md](MODERATION.md)** — the load-bearing open problem:
+   moderation-as-curation. Why "moderation" is six distinct powers, not one;
+   plural legible lenses instead of one feed; labeling *form* but never *truth*;
+   making every curation act a contestable entry; and the residual leaks (the
+   default lens, the watchdog-minority dependency).
+4. **[LINEAGE.md](LINEAGE.md)** — prior statecraft and political thought that
    carries over: Venetian/Florentine/Athenian selection, the accountability
    cluster (*dokimasia* / *euthyna* / *graphe paranomon*, the Chinese Censorate,
    Haudenosaunee recall), Condorcet, pol.is/vTaiwan, Ostrom's commons principles,
