@@ -164,11 +164,17 @@ rotated + stability-audited — `THEORY.md` §5.1, A4 §7):
 INV-11's sensitivity check is the operational discipline: recompute pools and draws
 under independent roots; instability ⇒ the output is flagged, not trusted.
 
+The aggregation and `Credence` math is now specified in `AGGREGATION.md`
+(two-shot Condorcet-independent aggregation with bridging-consensus surfacing; the
+live capture-posterior in log-odds, with the `SuspicionClaim` as its likelihood-
+ratio elicitation form), which adds INV-12..16.
+
 **Explicitly out of scope for v0** (deferred, not denied):
 - The concrete ZK group-membership scheme and the trust-propagation algorithm's
   exact parameters (A4 §6 names the requirement; the cryptographic engineering is
   its own project).
-- The aggregation/`Credence` math (which voting/judgment-aggregation rule).
+- The numeric LR calibration constants and correlated-evidence covariance modeling
+  for the credence (`AGGREGATION.md` §5 — structure shipped, constants need data).
 - The two named moderation residuals — the **default-lens leak** and the
   **watchdog-minority dependency** (MODERATION §7) — remain open under this spec.
 - All UI/UX and the public-facing layer.

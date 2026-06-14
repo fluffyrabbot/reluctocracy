@@ -29,7 +29,13 @@ This repository is, for now, a body of **design theory** — not yet code.
    the rule-bound, sortition the discretionary, cryptographically root the rest),
    the deliberation lifecycle state machine, and the eleven checkable invariants —
    each cross-referenced to the theory clause it enforces.
-5. **[LINEAGE.md](LINEAGE.md)** — prior statecraft and political thought that
+5. **[AGGREGATION.md](AGGREGATION.md)** — the judgment math the protocol rests on:
+   two-shot Condorcet-independent aggregation with bridging-consensus surfacing
+   (never a bare majority), quadratic voting for intensity, and the live capture-
+   posterior in log-odds — where each structured suspicion-claim is a likelihood
+   ratio and coordination leaves a statistical fingerprint even when ties are
+   hidden. Adds invariants INV-12..16.
+6. **[LINEAGE.md](LINEAGE.md)** — prior statecraft and political thought that
    carries over: Venetian/Florentine/Athenian selection, the accountability
    cluster (*dokimasia* / *euthyna* / *graphe paranomon*, the Chinese Censorate,
    Haudenosaunee recall), Condorcet, pol.is/vTaiwan, Ostrom's commons principles,
