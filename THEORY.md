@@ -68,6 +68,34 @@ We are aiming for the bottom-right quadrant and **everything below is how to sta
 
 ---
 
+## 1b. The organizing principle: structure it, or cede it to the murk
+
+A recurring objection to every mechanism below is "but doesn't that *create* an
+attack surface?" — e.g. doesn't a channel for questioning motives just invite
+weaponized suspicion? This objection rests on a false baseline. The honest framing:
+
+> The status quo is never the *absence* of a mechanism. It is the *unstructured,
+> bad-actor-favoring version* of that mechanism. Suspicion, patronage, reputation,
+> and coordination all already exist — in the murk, where the shameless have home
+> advantage. The design question is therefore never "should this dynamic exist?"
+> but **"structure it, or cede it to the murk?"**
+
+The murk is **security-by-obscurity for the unscrupulous.** Innuendo wins because
+it is never stated plainly enough to be refuted; patronage works because it is
+never named; coordination evades scrutiny because it is never surfaced. Dragging
+these dynamics into explicit, costed, accountable form does not invent the attack
+— it *illuminates* an attack that was already running in the dark, and in doing so
+lets the counterarguments stand at full strength (Mill: truth gains its "clearer
+perception and livelier impression" only through "its collision with error" — and
+the rebuttal can only be strong if the challenge was allowed to be stated).
+
+This is reluctocracy's actual bet, beneath all the specific mechanisms: **make the
+implicit explicit, because the implicit versions systematically favor the grifter.**
+"We prevent capture" is the dishonest framing; "we refuse to leave the field to
+obscurity" is the honest one.
+
+---
+
 ## 2. Threat model: the seven grifters
 
 | # | Adversary | Attack | Wants |
@@ -176,7 +204,7 @@ into the architecture rather than hoped for.
 ## 4. Defending the meta-layer (G6, G5, G7)
 
 Axes A and B protect against grifters *inside* the process. The deadlier
-adversary owns the process. Three mechanisms:
+adversary owns the process. Four mechanisms:
 
 **M1. Distributed, rotating, sortition'd control of the agenda.**
 Whoever decides *which questions get asked* and *which experts brief the room* is
@@ -198,6 +226,48 @@ aggregation method. Legitimacy is a claim about *the process having been
 followed*, independently checkable. This defeats G7: you cannot launder a
 foregone conclusion through a process whose every step is inspectable, because
 the tampering shows up in the trail.
+
+**M4. The live-posterior / permanent-contestability layer.**
+Some capture is undetectable by construction: a faction that coordinates entirely
+*off-platform* (the "Off-Graph Entryist") leaves no trace in the vouching graph,
+so A4's correlation de-weighting cannot see it. The answer is not better
+forensics but a different stance — **stop trying to *prove* capture and instead
+maintain a live, structured, public estimate of it.** A standing dialectical
+channel hosts the question "are there ulterior motives here?" in an explicit
+Bayesian form — *the claim, what it predicts if true, what it predicts if false,
+evidence for, evidence against, current credence.* This re-detects via the
+*output* what the graph missed at the *input*: an off-graph faction's ties are
+hidden, but their **positions still cluster**, and a structured channel surfaces
+the suspicious *agreement* even when the social ties show nothing. It also makes
+the system **antifragile** — legitimacy is earned by surviving challenges, not by
+suppressing them — and it operationalizes §1b: suspicion already exists in the
+murk; this drags it into answerable form.
+
+This mechanism is double-edged and ships **only** with five guardrails, or it
+inverts the selection (driving out the thin-skinned sincere, retaining the
+shameless) and becomes a delegitimization weapon:
+
+1. **Bayesian discipline, not free-floating accusation.** Only the structured
+   form is admissible — falsifiable predictions required. This prices suspicion
+   and makes a defeated claim a *durable, cited record of a claim that lost*
+   rather than a regenerating rumor.
+2. **Mandatory symmetry / self-application.** Every suspicion-claim is itself
+   subject to "is *this accusation* motivated?", same structure — the weapon must
+   cut both ways, neutralizing the professional accuser.
+3. **Cost / scarcity on accusations** (cf. A4 vouches), so a well-resourced actor
+   cannot flood the channel (Brandolini's asymmetry).
+4. **Resolve-and-ship-with-a-credence, not permanent limbo.** The dialectic
+   *closes* per deliberation: the judgment ships *with its posterior attached*
+   ("rendered under ~0.2 estimated probability of coordinated capture; here is the
+   live dissent"). The output carries its own confidence interval instead of being
+   blocked forever.
+5. **Aim at patterns, not anonymized persons.** Because outputs are anonymized
+   (B3), suspicion targets *"these positions cluster suspiciously,"* never *"Jane
+   is a plant."* B3 anonymization is what makes this channel safe to have.
+
+This is the primary residual defense against G2's undetectable variant and a
+direct reinforcement of M3 (legitimacy as an ongoing, contestable claim rather
+than a one-time stamp).
 
 ---
 
