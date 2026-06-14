@@ -96,6 +96,43 @@ obscurity" is the honest one.
 
 ---
 
+## 1c. North Star & success criterion
+
+It is tempting to measure reluctocracy against a perfect baseline — a system in
+which no bad actor has any channel. That baseline is impossible (§5), and holding
+the project to it is itself a kind of dishonesty. The honest success criterion is
+**relative, not absolute**:
+
+> Success is being **materially better than the status-quo web** as a medium for
+> civic discourse — not being capture-proof. Reluctocracy is a *discourse-
+> improvement* project, not a *governance-replacement* one. The smaller claim is
+> the stronger and more defensible one.
+
+The status-quo bar is low: engagement-optimized feeds, no persistent record,
+rhetoric with zero accountability, a lie and its correction living in different
+places and reaching different audiences. Against that, the **core asset** is
+modest to state and powerful in effect:
+
+> **Immutable co-location of claim and rebuttal.** In an immutable, single-threaded
+> dialectic you cannot encounter a distortion without also encountering its
+> strongest answer, permanently. This strips propaganda of the two things it runs
+> on — asymmetry of *reach* and asymmetry of *recency* — and lets each defeated
+> distortion become a citable precedent, so the corpus accumulates immunity.
+
+Two consequences fix the scope honestly:
+
+- The goal is a **culture of proper dialectic** scaffolded by mechanism, not a
+  mechanism that obviates culture. The norm — *show your reasoning; distortion is
+  called out and recorded* — is the actual product.
+- Immutability must remember the **arguments** without surveilling the **people**:
+  immutable claims/rebuttals, *pseudonymous authors* (consistent with B3), so the
+  permanent record is not also a permanent dossier or a chilling instrument.
+
+What remains unsolved under this honest framing is **moderation-as-curation**
+(§5.5) — the load-bearing open problem the rest of the design now points at.
+
+---
+
 ## 2. Threat model: the seven grifters
 
 | # | Adversary | Attack | Wants |
@@ -293,6 +330,16 @@ A theory that claims total grift-immunity is itself a grift. The hard limits:
 4. **Legitimacy is borrowable.** Even a perfect process can be cited dishonestly
    in the outside world ("a citizens' assembly endorsed X"). M3's provenance
    trail mitigates but cannot prevent bad-faith citation downstream.
+
+5. **Moderation-as-curation is the permanent open problem.** M4's immutable record
+   prevents *erasure* but not *burial, ordering, or labeling*. A captured moderator
+   never deletes — they shape what is surfaced, what is tagged "distortion," what
+   sits at the top versus on entry 4,000. This is G6 wearing the editor's hat, and
+   it fuses with the **attention problem**: an ever-growing dialectic is only
+   legible if something surfaces and summarizes it, and that surfacing is power.
+   The defense is to treat the *curation/surfacing layer itself* as subject to M3
+   (auditable) and M4 (contestable) recursively — but this is the load-bearing
+   unsolved layer, the successor to the now-defused permanent-doubt attack.
 
 The correct posture is not "grift is impossible here" but **"grift here has
 negative expected value, capture is expensive and visible, and the residual
