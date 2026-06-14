@@ -24,7 +24,12 @@ This repository is, for now, a body of **design theory** — not yet code.
    plural legible lenses instead of one feed; labeling *form* but never *truth*;
    making every curation act a contestable entry; and the residual leaks (the
    default lens, the watchdog-minority dependency).
-4. **[LINEAGE.md](LINEAGE.md)** — prior statecraft and political thought that
+4. **[PROTOCOL.md](PROTOCOL.md)** — v0 protocol spec: the append-only signed
+   event log, the data model (event types), the compute/trust boundary (mechanize
+   the rule-bound, sortition the discretionary, cryptographically root the rest),
+   the deliberation lifecycle state machine, and the eleven checkable invariants —
+   each cross-referenced to the theory clause it enforces.
+5. **[LINEAGE.md](LINEAGE.md)** — prior statecraft and political thought that
    carries over: Venetian/Florentine/Athenian selection, the accountability
    cluster (*dokimasia* / *euthyna* / *graphe paranomon*, the Chinese Censorate,
    Haudenosaunee recall), Condorcet, pol.is/vTaiwan, Ostrom's commons principles,
