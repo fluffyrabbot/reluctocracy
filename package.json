@@ -7,6 +7,7 @@
   "scripts": {
     "build": "tsc --noEmit",
     "lint": "eslint .",
+    "simulate:live-credence": "vitest run test/live-capture-credence.test.ts",
     "test": "vitest run --passWithNoTests",
     "verify": "npm run build && npm run lint && npm run test"
   },

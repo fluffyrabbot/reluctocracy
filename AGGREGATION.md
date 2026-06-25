@@ -109,6 +109,14 @@ correlated** (clustering and shift-synchrony overlap). So either model the
 covariance or discount for it — **do not double-count.** Stated honestly because
 the failure mode (over-confident posteriors from correlated evidence) is real.
 
+In v0, this is an explicit credence-model seam rather than an ad hoc feature
+field: `CredenceEvidenceFamily` records name the feature weights that share an
+evidence family, and `CredenceEvidenceDiscountRule` records declare the bounded
+discount multiplier for that family. `INV-16` fails when an overlapping family is
+used by a `Credence` without a sub-1 discount rule. This is not full covariance
+modeling; it is the executable rule that prevents known overlap from being
+silently counted twice.
+
 ### 2e. Gaming the detector — and why it backfires (Goodhart, §5.3)
 Once the signals are known, a sophisticated faction optimizes to *not* trip them:
 add noise to positions, desynchronize shifts. The defense is twofold:
@@ -124,8 +132,12 @@ add noise to positions, desynchronize shifts. The defense is twofold:
 root (`THEORY.md` §5.1). Mitigation, not elimination: keep them **public and
 plural** (multiple credence models run; report the range), and **sensitivity-test**
 — if the conclusion flips under reasonable prior ranges, the judgment is flagged
-fragile. The credence model is itself a `CurationAct`: open, attributed, and
-contestable (`MODERATION.md` §3).
+fragile. In v0 this is an append-only event seam: `CredenceModel` declares the
+attributed contestable model frame, `CredencePrior` records the prior trust root,
+`CredenceFeatureWeight` records each feature parameter, and each posterior
+`Credence` references the model/prior/weight events that produced it. Correlated
+feature weights are grouped with `CredenceEvidenceFamily` and must carry an
+explicit `CredenceEvidenceDiscountRule`.
 
 ---
 
@@ -156,8 +168,8 @@ always current-best-estimate.
 | INV-12 | Judgments are collected two-shot (independent T0, deliberated T1); both recorded | Condorcet independence |
 | INV-13 | No `Judgment` collapses to a bare winner; distribution + bridging map + dissent always shipped | §1d, M4 #4 |
 | INV-14 | Credence ships as a **range**, not a point, and as a time series `C(t)` | §2a, M4 #4 |
-| INV-15 | The credence model (features, weights, prior) is open, plural, and contestable | MODERATION §3, §2f |
-| INV-16 | Credence evidence is not double-counted across correlated signals | §2d |
+| INV-15 | The credence model (features, weights, prior) is open, plural, and contestable | Implemented by model/prior/feature-weight/family/rule events plus plural model-linked `Credence` series |
+| INV-16 | Credence evidence is not double-counted across correlated signals | Implemented by evidence-family declarations and bounded discount rules for overlapping active feature weights |
 
 ---
 
@@ -165,9 +177,11 @@ always current-best-estimate.
 
 - **LR calibration needs real data.** The numeric `P(E_i|C)` / `P(E_i|¬C)` cannot
   be set a priori; they require observed runs (or simulation) to calibrate. v0
-  ships the *structure*, not the constants.
-- **Correlated-evidence modeling** (§2d) is specified as a requirement, not solved
-  — proper covariance modeling of the signals is deferred.
+  ships the contestable model/prior/weight/family/rule event structure, not
+  empirically calibrated constants.
+- **Full covariance modeling** (§2d) is still deferred. v0 prevents silent
+  double-counting by requiring explicit evidence-family discount rules, but those
+  discounts are not yet empirical covariance estimates.
 - **Choice of Condorcet variant** (ranked pairs vs. Schulze) and the **QV credit
   budget** are left open; both are defensible, the difference is second-order.
 - **The prior trust root** (§2f) remains irreducible per `THEORY.md` §5.1.

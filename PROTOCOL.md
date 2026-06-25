@@ -45,7 +45,29 @@ Why this substrate:
 | `Stratum` | identity; tag (geo/community/demographic) from attestations | A4 §5a (stratification) |
 | `PoolEpoch` | window; **seed_set used**; propagation params; → {identity, trust_rank, strata} | A4 §3, §7 |
 | `RandomBeacon` | round; verifiable randomness (drand/VDF/commit-reveal) | A1 (trustless lottery) |
-| `Draw` | PoolEpoch_ref; beacon_round; diversity constraints; → selected panel | A1, A4 §5b |
+| `Draw` | PoolEpoch_ref; beacon_round; diversity constraints; → selected panel; optional trust-fragility flags | A1, A4 §5b, §7 |
+
+The v1 reference draw rule is `reluctocracy.draw.public-hash-sort-v1`: derive a
+stable public pool fingerprint from the sorted draw-eligible members, then rank
+each member by `sha256(canonical_json({ algorithm, poolFingerprint,
+beaconRound, beaconRandomness, identityRef }))`. The fingerprint intentionally
+excludes `poolEpochId` and `seedSet`, so independent seed forks that produce the
+same pool also produce the same draw under the same beacon. A `Draw` declares
+`panelSize`, `minimumDistinctStrata`, and the algorithm id in
+`diversityConstraints`. Selection first walks the ranked list to cover as many
+new strata as needed to satisfy the feasible `minimumDistinctStrata` target, then
+fills remaining seats by rank. `INV-1` recomputes every `Judgment.panelRef` from
+the referenced `PoolEpoch` and `RandomBeacon` and fails if the logged
+`selectedPanel` diverges.
+
+The reference code exposes this as a reusable public draw-rule seam, not only as
+one replay helper. `INV-2` now runs a deterministic forked-beacon statistical
+audit for equal-ticket pools and fails if observed selection rates diverge from
+pool share. `INV-11` compares comparable `PoolEpoch` forks with disjoint
+`seedSet`s. The replay records the base and forked pool fingerprints, recomputed
+selected panels, pool overlap, and selected-panel overlap. If pool or
+selected-panel stability flips, the `Draw` must carry a matching
+`pool_seed_instability` trust-fragility flag with `untrustworthy: true`.
 
 ### 1c. Deliberation & dialectic
 | Event | Key fields | Enforces |
@@ -54,20 +76,31 @@ Why this substrate:
 | `Deliberation` | agenda_ref; panel_ref; expert_refs; lifecycle_state | — |
 | `Briefing` | author (expert); **side (red/blue)**; funding_disclosure; **options[] (≥2), no recommendation** | M2 |
 | `Claim` | author + role∈{panelist,expert,public,curator}; content; type | §1c |
-| `Rebuttal` | targets claim_ref; content | INV-6 co-location |
+| `Rebuttal` | targets claim_ref; content; optional basis_refs[] | INV-6 co-location |
 | `SuspicionClaim` | target; predict_if_true; predict_if_false; evidence_for[]; evidence_against[]; credence | M4 + 5 guardrails |
-| `Credence` | target_ref; posterior; basis | M4 #4 (live posterior) |
+| `CredenceModel` | model_id; label; version; target; author; rationale; contestable=true | INV-15 |
+| `CredencePrior` | prior_id; model_ref; probability; band_half_width; basis[]; author; rationale; contestable=true | INV-15 |
+| `CredenceFeatureWeight` | feature_weight_id; model_ref; feature; neutral_observed_value; scale; weight; basis[]; contestable=true | INV-15 |
+| `CredenceEvidenceFamily` | family_id; model_ref; feature_weight_refs[]; basis[]; author; rationale; contestable=true | INV-16 |
+| `CredenceEvidenceDiscountRule` | rule_id; model_ref; evidence_family_ref; discount_multiplier; basis[]; author; rationale; contestable=true | INV-16 |
+| `Credence` | target_ref; model_ref; prior_ref; feature_weight_refs[]; posterior; basis | M4 #4 (live posterior), INV-14..16 |
 
 ### 1d. Curation
 | Event | Key fields | Enforces |
 |---|---|---|
-| `Lens` | id; **declarative ranking function** (auditable) | MODERATION §1 |
-| `CurationAct` | author; type∈{rank_weight, summary, **procedural_label**}; cited_rule; target_ref | MODERATION §2,§3 |
+| `Lens` | id; name; description; target; **declarative ranking rule** (auditable) | MODERATION §1 |
+| `CurationAct` | author; type∈{rank_weight, summary, **procedural_label**}; cited_rule; target_ref; evidence_refs; rationale | MODERATION §2,§3 |
 | `Summary` | panel_ref (red/blue); **extractive quotes preferred**; contestable=true | MODERATION §4,§5 |
 
 > **Schema-level prohibition:** there is *no* `TruthVerdict` event type. The system
 > cannot, by construction, label a claim "false." Truth is handled only by
 > co-located rebuttal + `Credence`. (MODERATION §2 / INV-9.)
+
+The first render surface is a view-model, not a verdict path: executable claim
+lenses may order claims, but `renderClaimRebuttalSurface` refuses to emit any
+claim unless it carries the procedurally strongest available rebuttal. Rebuttals
+are ranked by cited basis count, then append time and event hash for deterministic
+ties; this ranks record support, not truth.
 
 ### 1e. Output & accountability
 | Event | Key fields | Enforces |
@@ -161,20 +194,32 @@ rotated + stability-audited — `THEORY.md` §5.1, A4 §7):
 2. The **community attestation authorities** that issue membership bits.
 3. The **random beacon**.
 
-INV-11's sensitivity check is the operational discipline: recompute pools and draws
-under independent roots; instability ⇒ the output is flagged, not trusted.
+INV-11's sensitivity check is the operational discipline: replay comparable
+logged `PoolEpoch` forks with disjoint seed sets under the same propagation
+parameters, recompute their draw outcomes under the same beacon, and compare
+pool plus selected-panel overlap. Instability must be emitted as a matching
+`pool_seed_instability` trust-fragility flag, so the output is explicitly marked
+untrustworthy rather than silently accepted.
 
 The aggregation and `Credence` math is now specified in `AGGREGATION.md`
 (two-shot Condorcet-independent aggregation with bridging-consensus surfacing; the
 live capture-posterior in log-odds, with the `SuspicionClaim` as its likelihood-
-ratio elicitation form), which adds INV-12..16.
+ratio elicitation form). The v0 event model now carries plural, contestable
+`CredenceModel`, `CredencePrior`, `CredenceFeatureWeight`,
+`CredenceEvidenceFamily`, and `CredenceEvidenceDiscountRule` records that each
+posterior `Credence` references, which makes INV-15 and INV-16 executable.
 
 **Explicitly out of scope for v0** (deferred, not denied):
 - The concrete ZK group-membership scheme and the trust-propagation algorithm's
   exact parameters (A4 §6 names the requirement; the cryptographic engineering is
   its own project).
-- The numeric LR calibration constants and correlated-evidence covariance modeling
-  for the credence (`AGGREGATION.md` §5 — structure shipped, constants need data).
+- Non-uniform `trustRank` weighting for the draw remains uncalibrated. The
+  executable `INV-2` proof currently covers the equal-ticket public draw rule and
+  fails rather than certifying non-uniform rank weights.
+- Numeric LR calibration and correlated-evidence covariance modeling for the
+  credence (`AGGREGATION.md` §5). v0 ships contestable model/prior/weight events
+  plus explicit evidence-family discount rules, but their values still need
+  empirical calibration data.
 - The two named moderation residuals — the **default-lens leak** and the
   **watchdog-minority dependency** (MODERATION §7) — remain open under this spec.
 - All UI/UX and the public-facing layer.
