@@ -20,6 +20,9 @@ import type {
   RandomBeaconEvent,
   RebuttalEvent,
   SlashEvent,
+  StandingExpiryEvent,
+  StandingGrantEvent,
+  StandingUseEvent,
   StratumEvent,
   SummaryEvent,
   SuspicionClaimEvent,
@@ -40,6 +43,9 @@ export type ProjectionState = {
   readonly attestations: ReadonlyMap<Ref, AttestationEvent>;
   readonly vouches: ReadonlyMap<Ref, VouchEvent>;
   readonly slashes: ReadonlyMap<Ref, SlashEvent>;
+  readonly standingGrants: ReadonlyMap<Ref, StandingGrantEvent>;
+  readonly standingUsesByStanding: ReadonlyMap<Ref, readonly StandingUseEvent[]>;
+  readonly standingExpiriesByStanding: ReadonlyMap<Ref, readonly StandingExpiryEvent[]>;
   readonly strataByIdentity: ReadonlyMap<Ref, readonly StratumEvent[]>;
   readonly poolEpochs: ReadonlyMap<Ref, PoolEpochEvent>;
   readonly randomBeacons: ReadonlyMap<string, RandomBeaconEvent>;
@@ -95,6 +101,15 @@ export function replay(records: readonly LogRecord[]): ProjectionState {
         break;
       case "Slash":
         state.slashes.set(record.eventHash, event.payload);
+        break;
+      case "StandingGrant":
+        state.standingGrants.set(event.payload.standingId, event.payload);
+        break;
+      case "StandingUse":
+        pushGrouped(state.standingUsesByStanding, event.payload.standingRef, event.payload);
+        break;
+      case "StandingExpiry":
+        pushGrouped(state.standingExpiriesByStanding, event.payload.standingRef, event.payload);
         break;
       case "Stratum":
         pushGrouped(state.strataByIdentity, event.payload.identityRef, event.payload);
@@ -199,6 +214,9 @@ function emptyMutableState(
     randomBeacons: new Map(),
     rebuttalsByClaim: new Map(),
     slashes: new Map(),
+    standingExpiriesByStanding: new Map(),
+    standingGrants: new Map(),
+    standingUsesByStanding: new Map(),
     source: {
       headHash,
       recordCount
@@ -235,6 +253,9 @@ function freezeProjection(state: MutableProjectionState): ProjectionState {
     randomBeacons: freezeMap(state.randomBeacons),
     rebuttalsByClaim: freezeMap(state.rebuttalsByClaim),
     slashes: freezeMap(state.slashes),
+    standingExpiriesByStanding: freezeMap(state.standingExpiriesByStanding),
+    standingGrants: freezeMap(state.standingGrants),
+    standingUsesByStanding: freezeMap(state.standingUsesByStanding),
     source: state.source,
     strataByIdentity: freezeMap(state.strataByIdentity),
     summaries: freezeMap(state.summaries),

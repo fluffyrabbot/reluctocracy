@@ -46,6 +46,9 @@ Why this substrate:
 | `PoolEpoch` | window; **seed_set used**; propagation params; → {identity, trust_rank, strata} | A4 §3, §7 |
 | `RandomBeacon` | round; verifiable randomness (drand/VDF/commit-reveal) | A1 (trustless lottery) |
 | `Draw` | PoolEpoch_ref; beacon_round; diversity constraints; → selected panel; optional trust-fragility flags | A1, A4 §5b, §7 |
+| `StandingGrant` | standing_id; identity; deliberation_ref; basis_ref; issued_at; expires_at; non_transferable=true | B1, B2 |
+| `StandingUse` | standing_ref; identity; deliberation_ref; action_ref; purpose; used_at | B1, B2 |
+| `StandingExpiry` | standing_ref; deliberation_ref; reason; terminal_ref; expired_at | B1, B2 |
 
 The v1 reference draw rule is `reluctocracy.draw.public-hash-sort-v1`: derive a
 stable public pool fingerprint from the sorted draw-eligible members, then rank
@@ -68,6 +71,13 @@ pool share. `INV-11` compares comparable `PoolEpoch` forks with disjoint
 selected panels, pool overlap, and selected-panel overlap. If pool or
 selected-panel stability flips, the `Draw` must carry a matching
 `pool_seed_instability` trust-fragility flag with `untrustworthy: true`.
+
+Drawn panel authority is not inferred from pool membership alone. A selected
+identity receives a `StandingGrant` scoped to exactly one deliberation and draw,
+uses it once through `StandingUse` for the judgment action, and sheds it through
+`StandingExpiry` at publication. `INV-3` fails standing that is reused,
+transferred to another identity, applied to another deliberation, used outside
+its grant window, or left unexpired after publication.
 
 ### 1c. Deliberation & dialectic
 | Event | Key fields | Enforces |

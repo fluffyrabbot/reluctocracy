@@ -9,6 +9,9 @@ export type EventType =
   | "Attestation"
   | "Vouch"
   | "Slash"
+  | "StandingGrant"
+  | "StandingUse"
+  | "StandingExpiry"
   | "Stratum"
   | "PoolEpoch"
   | "RandomBeacon"
@@ -71,6 +74,35 @@ export type SlashEvent = {
   readonly targetVoucherRef: Ref;
   readonly cause: string;
   readonly capacityDelta: number;
+};
+
+export type StandingGrantEvent = {
+  readonly standingId: Ref;
+  readonly identityRef: Ref;
+  readonly deliberationRef: Ref;
+  readonly basisRef: Ref;
+  readonly issuedAt: IsoDateTime;
+  readonly expiresAt: IsoDateTime;
+  readonly nonTransferable: true;
+};
+
+export type StandingUseEvent = {
+  readonly standingUseId: Ref;
+  readonly standingRef: Ref;
+  readonly identityRef: Ref;
+  readonly deliberationRef: Ref;
+  readonly actionRef: Ref;
+  readonly purpose: "panel_judgment";
+  readonly usedAt: IsoDateTime;
+};
+
+export type StandingExpiryEvent = {
+  readonly standingExpiryId: Ref;
+  readonly standingRef: Ref;
+  readonly deliberationRef: Ref;
+  readonly reason: "judgment_published";
+  readonly terminalRef: Ref;
+  readonly expiredAt: IsoDateTime;
 };
 
 export type StratumEvent = {
@@ -375,6 +407,9 @@ export type EventPayloadByType = {
   readonly Attestation: AttestationEvent;
   readonly Vouch: VouchEvent;
   readonly Slash: SlashEvent;
+  readonly StandingGrant: StandingGrantEvent;
+  readonly StandingUse: StandingUseEvent;
+  readonly StandingExpiry: StandingExpiryEvent;
   readonly Stratum: StratumEvent;
   readonly PoolEpoch: PoolEpochEvent;
   readonly RandomBeacon: RandomBeaconEvent;

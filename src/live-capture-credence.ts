@@ -466,6 +466,39 @@ export function runLiveCaptureCredenceSimulation(
   const supportDistribution = averageScores(selectedPanel, input.options, "t1");
   const bridgingMap = buildBridgingMap(selectedPanel, input.options);
 
+  for (const identityRef of selectedPanelRefs) {
+    const standingId = `standing:${input.scenarioId}:${identityRef}`;
+    log.append(
+      event("StandingGrant", {
+        basisRef: drawId,
+        deliberationRef: deliberationId,
+        expiresAt: "2026-06-14T23:59:59.000Z",
+        identityRef,
+        issuedAt: timestamp(5),
+        nonTransferable: true,
+        standingId
+      }),
+      placeholderSignature,
+      { appendedAt: timestamp(timestampOffset) }
+    );
+    timestampOffset += 1;
+
+    log.append(
+      event("StandingUse", {
+        actionRef: judgmentId,
+        deliberationRef: deliberationId,
+        identityRef,
+        purpose: "panel_judgment",
+        standingRef: standingId,
+        standingUseId: `standing-use:${input.scenarioId}:${identityRef}`,
+        usedAt: timestamp(timestampOffset)
+      }),
+      placeholderSignature,
+      { appendedAt: timestamp(timestampOffset) }
+    );
+    timestampOffset += 1;
+  }
+
   log.append(
     event("Judgment", {
       anonymizedAggregate: {
@@ -501,6 +534,23 @@ export function runLiveCaptureCredenceSimulation(
     { appendedAt: timestamp(timestampOffset) }
   );
   timestampOffset += 1;
+
+  for (const identityRef of selectedPanelRefs) {
+    const standingId = `standing:${input.scenarioId}:${identityRef}`;
+    log.append(
+      event("StandingExpiry", {
+        deliberationRef: deliberationId,
+        expiredAt: timestamp(timestampOffset),
+        reason: "judgment_published",
+        standingExpiryId: `standing-expiry:${input.scenarioId}:${identityRef}`,
+        standingRef: standingId,
+        terminalRef: judgmentId
+      }),
+      placeholderSignature,
+      { appendedAt: timestamp(timestampOffset) }
+    );
+    timestampOffset += 1;
+  }
 
   for (const modelRun of modelRuns) {
     for (const [index, step] of modelRun.updatePipeline.entries()) {

@@ -51,6 +51,9 @@ export type {
   LensRule,
   ProceduralLabelRule,
   ProtocolEvent,
+  StandingExpiryEvent,
+  StandingGrantEvent,
+  StandingUseEvent,
   TrustFragilityFlag
 } from "./events.ts";
 export { event, protocolSchemaVersion } from "./events.ts";

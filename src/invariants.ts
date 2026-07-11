@@ -54,27 +54,6 @@ export type InvariantDefinition = {
   readonly check: (context: InvariantContext) => InvariantResult;
 };
 
-const notImplementedBecause = (
-  id: InvariantId,
-  name: string,
-  source: string,
-  obligation: string,
-  reason: string
-): InvariantDefinition => ({
-  check: () => ({
-    failures: [reason],
-    id,
-    name,
-    obligation,
-    source,
-    status: "not_implemented"
-  }),
-  id,
-  name,
-  obligation,
-  source
-});
-
 export const invariantRegistry = [
   {
     check: checkPanelRecomputability,
@@ -90,13 +69,13 @@ export const invariantRegistry = [
     obligation: "Expected panel share equals pool trust share.",
     source: "PROTOCOL.md §4"
   },
-  notImplementedBecause(
-    "INV-3",
-    "perishable standing",
-    "PROTOCOL.md §4",
-    "No identity accrues durable cross-deliberation authority; standing is single-use and non-transferable.",
-    "Standing expiry needs lifecycle transition semantics beyond the initial projection scaffold."
-  ),
+  {
+    check: checkPerishableStanding,
+    id: "INV-3",
+    name: "perishable standing",
+    obligation: "No identity accrues durable cross-deliberation authority; standing is single-use and non-transferable.",
+    source: "PROTOCOL.md §4"
+  },
   {
     check: checkNoPanelistAttribution,
     id: "INV-4",
@@ -280,6 +259,127 @@ function checkDrawFairness(context: InvariantContext): InvariantResult {
       failures.push(...audit.failures.map((failure) => `${drawId}: ${failure}`));
     } catch (error) {
       failures.push(`${drawId}: ${errorMessage(error)}`);
+    }
+  }
+
+  return failures.length > 0 ? fail(definition, failures) : pass(definition);
+}
+
+function checkPerishableStanding(context: InvariantContext): InvariantResult {
+  const definition = invariantAt(2);
+  const failures: string[] = [];
+  const grantsByDeliberationAndIdentity = new Map<string, string[]>();
+
+  for (const [standingId, grant] of context.projection.standingGrants) {
+    const rawGrant = grant as unknown as { readonly nonTransferable?: unknown };
+    if (rawGrant.nonTransferable !== true) {
+      failures.push(`${standingId}: standing grant is transferable`);
+    }
+    if (grant.identityRef.length === 0 || grant.deliberationRef.length === 0 || grant.basisRef.length === 0) {
+      failures.push(`${standingId}: standing grant is missing identity, deliberation, or basis reference`);
+    }
+    if (compareIso(grant.issuedAt, grant.expiresAt) >= 0) {
+      failures.push(`${standingId}: grant expiry must be after issuance`);
+    }
+
+    const uses = context.projection.standingUsesByStanding.get(standingId) ?? [];
+    const expiries = context.projection.standingExpiriesByStanding.get(standingId) ?? [];
+
+    if (uses.length > 1) {
+      failures.push(`${standingId}: standing is used ${String(uses.length)} times`);
+    }
+    if (expiries.length === 0) {
+      failures.push(`${standingId}: standing does not expire at publication`);
+    }
+    if (expiries.length > 1) {
+      failures.push(`${standingId}: standing has ${String(expiries.length)} expiry records`);
+    }
+
+    for (const use of uses) {
+      if (use.identityRef !== grant.identityRef) {
+        failures.push(`${standingId}: use ${use.standingUseId} transfers standing to ${use.identityRef}`);
+      }
+      if (use.deliberationRef !== grant.deliberationRef) {
+        failures.push(`${standingId}: use ${use.standingUseId} crosses into ${use.deliberationRef}`);
+      }
+      if (compareIso(use.usedAt, grant.issuedAt) < 0 || compareIso(use.usedAt, grant.expiresAt) > 0) {
+        failures.push(`${standingId}: use ${use.standingUseId} is outside the standing window`);
+      }
+
+      const judgment = context.projection.judgments.get(use.actionRef);
+      if (judgment === undefined) {
+        failures.push(`${standingId}: use ${use.standingUseId} does not resolve to a Judgment`);
+      } else if (judgment.deliberationRef !== grant.deliberationRef) {
+        failures.push(`${standingId}: use ${use.standingUseId} resolves to a cross-deliberation Judgment`);
+      }
+    }
+
+    for (const expiry of expiries) {
+      if (expiry.deliberationRef !== grant.deliberationRef) {
+        failures.push(`${standingId}: expiry ${expiry.standingExpiryId} crosses into ${expiry.deliberationRef}`);
+      }
+      if (compareIso(expiry.expiredAt, grant.issuedAt) < 0 || compareIso(expiry.expiredAt, grant.expiresAt) > 0) {
+        failures.push(`${standingId}: expiry ${expiry.standingExpiryId} is outside the standing window`);
+      }
+      if (!uses.some((use) => use.actionRef === expiry.terminalRef)) {
+        failures.push(`${standingId}: expiry ${expiry.standingExpiryId} is not tied to the standing use`);
+      }
+    }
+
+    pushMapValue(
+      grantsByDeliberationAndIdentity,
+      standingGrantKey(grant.deliberationRef, grant.identityRef),
+      standingId
+    );
+  }
+
+  for (const [standingRef, uses] of context.projection.standingUsesByStanding) {
+    if (!context.projection.standingGrants.has(standingRef)) {
+      failures.push(`${standingRef}: standing use references missing grant`);
+    }
+    if (uses.length > 1) {
+      failures.push(`${standingRef}: standing use records violate single-use standing`);
+    }
+  }
+
+  for (const [standingRef] of context.projection.standingExpiriesByStanding) {
+    if (!context.projection.standingGrants.has(standingRef)) {
+      failures.push(`${standingRef}: standing expiry references missing grant`);
+    }
+  }
+
+  for (const [judgmentId, judgment] of context.projection.judgments) {
+    const draw = context.projection.draws.get(judgment.panelRef);
+    if (draw === undefined) {
+      continue;
+    }
+
+    for (const identityRef of draw.selectedPanel) {
+      const grantIds =
+        grantsByDeliberationAndIdentity.get(standingGrantKey(judgment.deliberationRef, identityRef)) ?? [];
+      const judgmentGrantIds = grantIds.filter((standingId) => {
+        const grant = context.projection.standingGrants.get(standingId);
+        return grant?.basisRef === draw.drawId;
+      });
+
+      if (judgmentGrantIds.length === 0) {
+        failures.push(`${judgmentId}: panelist ${identityRef} has no standing grant for this draw`);
+        continue;
+      }
+      if (judgmentGrantIds.length > 1) {
+        failures.push(`${judgmentId}: panelist ${identityRef} has duplicate standing grants for this draw`);
+      }
+
+      for (const standingId of judgmentGrantIds) {
+        const uses = context.projection.standingUsesByStanding.get(standingId) ?? [];
+        const expiries = context.projection.standingExpiriesByStanding.get(standingId) ?? [];
+        if (!uses.some((use) => use.actionRef === judgmentId && use.identityRef === identityRef)) {
+          failures.push(`${judgmentId}: panelist ${identityRef} does not use standing ${standingId}`);
+        }
+        if (!expiries.some((expiry) => expiry.terminalRef === judgmentId)) {
+          failures.push(`${judgmentId}: panelist ${identityRef} standing ${standingId} does not expire on publication`);
+        }
+      }
     }
   }
 
@@ -703,6 +803,18 @@ function hasContestableTrue(value: unknown): boolean {
     "contestable" in value &&
     value.contestable === true
   );
+}
+
+function standingGrantKey(deliberationRef: string, identityRef: string): string {
+  return `${deliberationRef}\u0000${identityRef}`;
+}
+
+function pushMapValue<Key, Value>(map: Map<Key, Value[]>, key: Key, value: Value): void {
+  map.set(key, [...(map.get(key) ?? []), value]);
+}
+
+function compareIso(left: string, right: string): number {
+  return Date.parse(left) - Date.parse(right);
 }
 
 function errorMessage(error: unknown): string {

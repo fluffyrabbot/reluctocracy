@@ -56,10 +56,10 @@ replay projections, and machine-checkable invariant results.
 ## Status
 
 Early theory with a greenfield-safe TypeScript substrate scaffold. Open problems
-are named, not hidden — see the impossibility results (`THEORY.md` §5), residual
-tensions (`A4-NOMINATION.md` §8), and invariant checks that intentionally return
-`not_implemented` where the required standing lifecycle has not been specified
-yet.
+are named, not hidden — see the impossibility results (`THEORY.md` §5) and
+residual tensions (`A4-NOMINATION.md` §8). The v0 invariant registry is now fully
+executable: `INV-1..16` return pass/fail results over the event log instead of
+standing in for unspecified protocol seams.
 
 The first executable moderation seam is now present: `Lens` events define
 plural, legible claim-ranking rules, `CurationAct` events carry attributed,
@@ -77,6 +77,11 @@ fingerprint against a `RandomBeacon`, including deterministic
 equal-ticket pools, and `INV-11` replays comparable independent seed forks to
 require pool/draw stability or an explicit matching `pool_seed_instability`
 trust-fragility flag on the `Draw`.
+
+The standing lifecycle seam is explicit: `StandingGrant`, `StandingUse`, and
+`StandingExpiry` records attach panel authority to one deliberation and one
+identity, then require it to expire at judgment publication. `INV-3` fails reused,
+transferred, cross-deliberation, or unexpired standing.
 
 The executable credence-model seam is now first-class as well: `CredenceModel`,
 `CredencePrior`, and `CredenceFeatureWeight` events make priors and feature

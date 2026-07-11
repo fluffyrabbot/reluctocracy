@@ -224,7 +224,7 @@ describe("protocol invariants", () => {
     expect(new Set(Object.values(audit.expectedSelectionRateByIdentity))).toEqual(new Set([0.5]));
   });
 
-  it("returns machine-checkable results for INV-1..16 with honest stubs", () => {
+  it("returns machine-checkable results for INV-1..16", () => {
     const log = completeJudgmentLog();
     const results = evaluateInvariants(log.records());
 
@@ -247,10 +247,45 @@ describe("protocol invariants", () => {
       "INV-15",
       "INV-16"
     ]);
-    expect(results.filter((result) => result.status === "not_implemented").map((result) => result.id)).toEqual([
-      "INV-3"
-    ]);
+    expect(results.filter((result) => result.status === "not_implemented")).toEqual([]);
     expect(results.filter((result) => result.status === "fail")).toEqual([]);
+  });
+
+  it("fails INV-3 when panel standing is reused, transferred, or left unexpired", () => {
+    const reused = evaluateInvariants(
+      completeJudgmentLog({
+        duplicateFirstStandingUse: true
+      }).records()
+    ).find((result) => result.id === "INV-3");
+    const transferred = evaluateInvariants(
+      completeJudgmentLog({
+        transferFirstStandingUseTo: "identity:not-selected"
+      }).records()
+    ).find((result) => result.id === "INV-3");
+    const unexpired = evaluateInvariants(
+      completeJudgmentLog({
+        omitFirstStandingExpiry: true
+      }).records()
+    ).find((result) => result.id === "INV-3");
+
+    expect(reused).toMatchObject({
+      status: "fail"
+    });
+    expect(reused?.failures).toEqual(
+      expect.arrayContaining([expect.stringContaining("single-use standing")])
+    );
+    expect(transferred).toMatchObject({
+      status: "fail"
+    });
+    expect(transferred?.failures).toEqual(
+      expect.arrayContaining([expect.stringContaining("transfers standing")])
+    );
+    expect(unexpired).toMatchObject({
+      status: "fail"
+    });
+    expect(unexpired?.failures).toEqual(
+      expect.arrayContaining([expect.stringContaining("does not expire on publication")])
+    );
   });
 
   it("fails INV-2 when an asymmetric diversity constraint skews pool-share odds", () => {
@@ -638,6 +673,9 @@ function completeJudgmentLog(
     readonly emitTrustFragilityFlags?: boolean;
     readonly emitIndependentPoolEpoch?: boolean;
     readonly trustFragilityFlagsOverride?: readonly TrustFragilityFlag[];
+    readonly duplicateFirstStandingUse?: boolean;
+    readonly omitFirstStandingExpiry?: boolean;
+    readonly transferFirstStandingUseTo?: string;
   } = {}
 ): AppendOnlyEventLog {
   const log = new AppendOnlyEventLog();
@@ -748,6 +786,18 @@ function completeJudgmentLog(
   );
 
   log.append(
+    event("Deliberation", {
+      agendaRef: "agenda:1",
+      deliberationId: "deliberation:1",
+      expertRefs: ["expert:red", "expert:blue"],
+      lifecycleState: "SYNTHESIZE",
+      panelRef: "draw:1"
+    }),
+    signature,
+    { appendedAt: "2026-06-14T00:01:30.000Z" }
+  );
+
+  log.append(
     event("Briefing", {
       authorRef: "expert:red",
       briefingId: "briefing:red",
@@ -774,6 +824,8 @@ function completeJudgmentLog(
     signature,
     { appendedAt: "2026-06-14T00:03:00.000Z" }
   );
+
+  appendStandingLifecycle(log, selectedPanel, options);
 
   log.append(
     event("Judgment", {
@@ -852,6 +904,86 @@ function completeJudgmentLog(
   }
 
   return log;
+}
+
+function appendStandingLifecycle(
+  log: AppendOnlyEventLog,
+  selectedPanel: readonly string[],
+  options: {
+    readonly duplicateFirstStandingUse?: boolean;
+    readonly omitFirstStandingExpiry?: boolean;
+    readonly transferFirstStandingUseTo?: string;
+  }
+): void {
+  selectedPanel.forEach((identityRef, index) => {
+    const standingId = `standing:judgment-1:${identityRef}`;
+    const isFirst = index === 0;
+    const useIdentityRef =
+      isFirst && options.transferFirstStandingUseTo !== undefined
+        ? options.transferFirstStandingUseTo
+        : identityRef;
+
+    log.append(
+      event("StandingGrant", {
+        basisRef: "draw:1",
+        deliberationRef: "deliberation:1",
+        expiresAt: "2026-06-14T00:05:00.000Z",
+        identityRef,
+        issuedAt: "2026-06-14T00:01:45.000Z",
+        nonTransferable: true,
+        standingId
+      }),
+      signature,
+      { appendedAt: `2026-06-14T00:03:${String(10 + index).padStart(2, "0")}.000Z` }
+    );
+
+    log.append(
+      event("StandingUse", {
+        actionRef: "judgment:1",
+        deliberationRef: "deliberation:1",
+        identityRef: useIdentityRef,
+        purpose: "panel_judgment",
+        standingRef: standingId,
+        standingUseId: `standing-use:judgment-1:${identityRef}`,
+        usedAt: "2026-06-14T00:04:00.000Z"
+      }),
+      signature,
+      { appendedAt: `2026-06-14T00:03:${String(20 + index).padStart(2, "0")}.000Z` }
+    );
+
+    if (isFirst && options.duplicateFirstStandingUse === true) {
+      log.append(
+        event("StandingUse", {
+          actionRef: "judgment:1",
+          deliberationRef: "deliberation:1",
+          identityRef,
+          purpose: "panel_judgment",
+          standingRef: standingId,
+          standingUseId: `standing-use:judgment-1:${identityRef}:duplicate`,
+          usedAt: "2026-06-14T00:04:01.000Z"
+        }),
+        signature,
+        { appendedAt: "2026-06-14T00:03:29.000Z" }
+      );
+    }
+
+    if (isFirst && options.omitFirstStandingExpiry === true) {
+      return;
+    }
+
+    log.append(
+      event("StandingExpiry", {
+        deliberationRef: "deliberation:1",
+        expiredAt: "2026-06-14T00:04:30.000Z",
+        reason: "judgment_published",
+        standingExpiryId: `standing-expiry:judgment-1:${identityRef}`,
+        standingRef: standingId,
+        terminalRef: "judgment:1"
+      }),
+      signature,
+      { appendedAt: `2026-06-14T00:04:${String(30 + index).padStart(2, "0")}.000Z` }
+    );
+  });
 }
 
 function claimCurationLog(): AppendOnlyEventLog {
