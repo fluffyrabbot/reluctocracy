@@ -58,7 +58,7 @@ replay projections, and machine-checkable invariant results.
 Early theory with a greenfield-safe TypeScript substrate scaffold. Open problems
 are named, not hidden — see the impossibility results (`THEORY.md` §5) and
 residual tensions (`A4-NOMINATION.md` §8). The v0 invariant registry is now fully
-executable: `INV-1..16` return pass/fail results over the event log instead of
+executable: `INV-1..17` return pass/fail results over the event log instead of
 standing in for unspecified protocol seams.
 
 The first executable moderation seam is now present: `Lens` events define
@@ -82,6 +82,14 @@ The standing lifecycle seam is explicit: `StandingGrant`, `StandingUse`, and
 `StandingExpiry` records attach panel authority to one deliberation and one
 identity, then require it to expire at judgment publication. `INV-3` fails reused,
 transferred, cross-deliberation, or unexpired standing.
+
+The publication boundary is replayable end to end: each `Judgment` requires a
+`Provenance` packet binding its deliberation, draw, pool epoch, beacon, exact
+briefing set, aggregation method, and preceding event-chain head. `INV-17`
+rejects missing, stale, mismatched, duplicate, misordered, tampered, or orphaned
+provenance. `buildProvenance` is the canonical packet constructor, and
+`replayPublication` returns its fully resolved, deeply immutable read model after
+verifying the versioned SHA-256 packet digest.
 
 The executable credence-model seam is now first-class as well: `CredenceModel`,
 `CredencePrior`, and `CredenceFeatureWeight` events make priors and feature

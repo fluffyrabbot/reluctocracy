@@ -10,6 +10,7 @@ import type { LogRecord } from "./log.ts";
 import { verifyEventChain } from "./log.ts";
 import type { ProjectionState } from "./projections.ts";
 import { replay } from "./projections.ts";
+import { replayPublication } from "./publication.ts";
 import { renderClaimRebuttalSurface } from "./render.ts";
 
 export type InvariantId =
@@ -28,7 +29,8 @@ export type InvariantId =
   | "INV-13"
   | "INV-14"
   | "INV-15"
-  | "INV-16";
+  | "INV-16"
+  | "INV-17";
 
 export type InvariantStatus = "fail" | "not_implemented" | "pass";
 
@@ -166,6 +168,13 @@ export const invariantRegistry = [
     name: "no double-counted evidence",
     obligation: "Credence evidence is not double-counted across correlated signals.",
     source: "AGGREGATION.md §4"
+  },
+  {
+    check: checkPublicationProvenance,
+    id: "INV-17",
+    name: "replayable publication provenance",
+    obligation: "Every Judgment resolves a provenance packet matching its deliberation, draw, pool epoch, beacon, and briefing set.",
+    source: "PROTOCOL.md §4"
   }
 ] satisfies readonly InvariantDefinition[];
 
@@ -775,6 +784,29 @@ function checkNoDoubleCountedEvidence(context: InvariantContext): InvariantResul
           );
         }
       }
+    }
+  }
+
+  return failures.length > 0 ? fail(definition, failures) : pass(definition);
+}
+
+function checkPublicationProvenance(context: InvariantContext): InvariantResult {
+  const definition = invariantAt(16);
+  const failures: string[] = [];
+  const referencedProvenanceIds = new Set<string>();
+
+  for (const [judgmentId, judgment] of context.projection.judgments) {
+    referencedProvenanceIds.add(judgment.provenanceRef);
+    try {
+      replayPublication(context.records, judgmentId);
+    } catch (error) {
+      failures.push(`${judgmentId}: ${errorMessage(error)}`);
+    }
+  }
+
+  for (const provenanceId of context.projection.provenances.keys()) {
+    if (!referencedProvenanceIds.has(provenanceId)) {
+      failures.push(`${provenanceId}: Provenance is not referenced by its Judgment`);
     }
   }
 

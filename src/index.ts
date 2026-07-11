@@ -47,10 +47,13 @@ export type {
   CredenceFeatureWeightEvent,
   CredenceModelEvent,
   CredencePriorEvent,
+  DeliberationEvent,
+  JudgmentEvent,
   LensEvent,
   LensRule,
   ProceduralLabelRule,
   ProtocolEvent,
+  ProvenanceEvent,
   StandingExpiryEvent,
   StandingGrantEvent,
   StandingUseEvent,
@@ -94,3 +97,15 @@ export type {
 export { runLiveCaptureCredenceSimulation } from "./live-capture-credence.ts";
 export type { ProjectionState } from "./projections.ts";
 export { replay } from "./projections.ts";
+export type {
+  BuildProvenanceInput,
+  PublicationPacket,
+  PublicationPacketHashAlgorithm,
+  PublicationPacketVersion
+} from "./publication.ts";
+export {
+  buildProvenance,
+  publicationPacketHashAlgorithm,
+  publicationPacketVersion,
+  replayPublication
+} from "./publication.ts";

@@ -9,6 +9,7 @@ import type {
 } from "./events.ts";
 import { event } from "./events.ts";
 import { AppendOnlyEventLog } from "./log.ts";
+import { buildProvenance } from "./publication.ts";
 
 export type OptionScores = Readonly<Record<string, number>>;
 
@@ -243,14 +244,15 @@ export function runLiveCaptureCredenceSimulation(
   });
   const selectedPanel = resolvePanelists(input.pool, selectedPanelRefs);
   const drawId = `draw:${input.scenarioId}`;
+  const draw = event("Draw", {
+    beaconRound: input.beaconRound,
+    diversityConstraints,
+    drawId,
+    poolEpochRef: poolEpochId,
+    selectedPanel: selectedPanelRefs
+  }).payload;
   log.append(
-    event("Draw", {
-      beaconRound: input.beaconRound,
-      diversityConstraints,
-      drawId,
-      poolEpochRef: poolEpochId,
-      selectedPanel: selectedPanelRefs
-    }),
+    event("Draw", draw),
     placeholderSignature,
     { appendedAt: timestamp(3) }
   );
@@ -260,6 +262,8 @@ export function runLiveCaptureCredenceSimulation(
   const t0ClaimId = `claim:${input.scenarioId}:t0-panel-draw`;
   const t1ClaimId = `claim:${input.scenarioId}:t1-panel-draw`;
   const judgmentId = `judgment:${input.scenarioId}`;
+  const redBriefingId = `briefing:${input.scenarioId}:red`;
+  const provenanceId = `provenance:${input.scenarioId}`;
 
   log.append(
     event("AgendaItem", {
@@ -276,26 +280,29 @@ export function runLiveCaptureCredenceSimulation(
     { appendedAt: timestamp(4) }
   );
 
+  const deliberation = event("Deliberation", {
+    agendaRef: agendaId,
+    briefingRefs: [redBriefingId],
+    deliberationId,
+    expertRefs: ["expert:red-placeholder", "expert:blue-placeholder"],
+    lifecycleState: "SYNTHESIZE",
+    panelRef: drawId
+  }).payload;
   log.append(
-    event("Deliberation", {
-      agendaRef: agendaId,
-      deliberationId,
-      expertRefs: ["expert:red-placeholder", "expert:blue-placeholder"],
-      lifecycleState: "SYNTHESIZE",
-      panelRef: drawId
-    }),
+    event("Deliberation", deliberation),
     placeholderSignature,
     { appendedAt: timestamp(5) }
   );
 
+  const briefing = event("Briefing", {
+    authorRef: "expert:red-placeholder",
+    briefingId: redBriefingId,
+    fundingDisclosure: "simulation placeholder; no real funding source",
+    options: input.options,
+    side: "red"
+  }).payload;
   log.append(
-    event("Briefing", {
-      authorRef: "expert:red-placeholder",
-      briefingId: `briefing:${input.scenarioId}:red`,
-      fundingDisclosure: "simulation placeholder; no real funding source",
-      options: input.options,
-      side: "red"
-    }),
+    event("Briefing", briefing),
     placeholderSignature,
     { appendedAt: timestamp(6) }
   );
@@ -499,8 +506,7 @@ export function runLiveCaptureCredenceSimulation(
     timestampOffset += 1;
   }
 
-  log.append(
-    event("Judgment", {
+  const judgment = event("Judgment", {
       anonymizedAggregate: {
         calibrationStatus: "uncalibrated_model_parameters",
         clusteringSignals,
@@ -524,12 +530,32 @@ export function runLiveCaptureCredenceSimulation(
       judgmentId,
       liveDissent: liveDissentFromSupport(supportDistribution),
       panelRef: drawId,
+      provenanceRef: provenanceId,
       supportDistribution,
       twoShot: {
         t0Ref: t0ClaimId,
         t1Ref: t1ClaimId
       }
-    }),
+    }).payload;
+  const provenance = buildProvenance({
+    briefings: [briefing],
+    deliberation,
+    deliberationLogHash: log.headHash() ?? "",
+    draw,
+    judgment,
+    poolEpoch,
+    provenanceId,
+    randomBeacon
+  });
+  log.append(
+    event("Provenance", provenance),
+    placeholderSignature,
+    { appendedAt: timestamp(timestampOffset) }
+  );
+  timestampOffset += 1;
+
+  log.append(
+    event("Judgment", judgment),
     placeholderSignature,
     { appendedAt: timestamp(timestampOffset) }
   );

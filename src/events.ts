@@ -173,6 +173,7 @@ export type DeliberationEvent = {
   readonly agendaRef: Ref;
   readonly panelRef: Ref;
   readonly expertRefs: readonly Ref[];
+  readonly briefingRefs: readonly Ref[];
   readonly lifecycleState: DeliberationState;
 };
 
@@ -382,16 +383,22 @@ export type JudgmentEvent = {
   readonly decision?: string;
   readonly supportDistribution?: Readonly<Record<string, number>>;
   readonly bridgingMap?: Readonly<Record<string, Readonly<Record<string, number>>>>;
-  readonly provenanceRef?: Ref;
+  readonly provenanceRef: Ref;
 };
 
 export type ProvenanceEvent = {
   readonly provenanceId: Ref;
+  readonly judgmentRef: Ref;
+  readonly deliberationRef: Ref;
+  readonly drawRef: Ref;
   readonly poolEpochRef: Ref;
   readonly beaconRound: string;
   readonly briefingRefs: readonly Ref[];
   readonly deliberationLogHash: string;
   readonly aggregationMethod: string;
+  readonly packetVersion: "reluctocracy.publication.v1";
+  readonly packetHashAlgorithm: "sha256";
+  readonly packetHash: string;
 };
 
 export type EuthynaEvent = {

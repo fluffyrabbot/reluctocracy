@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   AppendOnlyEventLog,
   auditDrawFairness,
+  buildProvenance,
   chronologicalClaimLens,
   contestednessClaimLens,
   deriveTrustFragilityFlagsForDraw,
@@ -19,6 +20,7 @@ import {
   renderClaimRebuttalSurface,
   replaySeedSetSensitivity,
   replay,
+  replayPublication,
   verifyEventChain,
   type JsonValue,
   type LogRecord,
@@ -224,11 +226,11 @@ describe("protocol invariants", () => {
     expect(new Set(Object.values(audit.expectedSelectionRateByIdentity))).toEqual(new Set([0.5]));
   });
 
-  it("returns machine-checkable results for INV-1..16", () => {
+  it("returns machine-checkable results for INV-1..17", () => {
     const log = completeJudgmentLog();
     const results = evaluateInvariants(log.records());
 
-    expect(results).toHaveLength(16);
+    expect(results).toHaveLength(17);
     expect(results.map((result) => result.id)).toEqual([
       "INV-1",
       "INV-2",
@@ -245,7 +247,8 @@ describe("protocol invariants", () => {
       "INV-13",
       "INV-14",
       "INV-15",
-      "INV-16"
+      "INV-16",
+      "INV-17"
     ]);
     expect(results.filter((result) => result.status === "not_implemented")).toEqual([]);
     expect(results.filter((result) => result.status === "fail")).toEqual([]);
@@ -286,6 +289,84 @@ describe("protocol invariants", () => {
     expect(unexpired?.failures).toEqual(
       expect.arrayContaining([expect.stringContaining("does not expire on publication")])
     );
+  });
+
+  it("fails INV-17 for missing or inconsistent publication provenance", () => {
+    const cases = [
+      {
+        expected: "Provenance provenance:judgment:1 does not resolve",
+        log: completeJudgmentLog({ omitProvenance: true })
+      },
+      {
+        expected: "mismatched RandomBeacon",
+        log: completeJudgmentLog({ provenanceBeaconRoundOverride: "round:stale" })
+      },
+      {
+        expected: "mismatched PoolEpoch",
+        log: completeJudgmentLog({ provenancePoolEpochRefOverride: "pool:1-independent-seed" })
+      },
+      {
+        expected: "briefing set does not match",
+        log: completeJudgmentLog({ provenanceBriefingRefsOverride: ["briefing:stale"] })
+      }
+    ];
+
+    for (const testCase of cases) {
+      const inv17 = evaluateInvariants(testCase.log.records()).find((result) => result.id === "INV-17");
+      expect(inv17).toMatchObject({ status: "fail" });
+      expect(inv17?.failures).toEqual(
+        expect.arrayContaining([expect.stringContaining(testCase.expected)])
+      );
+    }
+  });
+
+  it("replays a deeply immutable, fully resolved publication packet", () => {
+    const packet = replayPublication(completeJudgmentLog().records(), "judgment:1");
+
+    expect(packet).toMatchObject({
+      packetHashAlgorithm: "sha256",
+      packetVersion: "reluctocracy.publication.v1"
+    });
+    expect(packet.provenance.packetHash).toBe(packet.packetHash);
+    expect(packet.deliberation.deliberationId).toBe("deliberation:1");
+    expect(packet.draw.drawId).toBe("draw:1");
+    expect(packet.poolEpoch.poolEpochId).toBe("pool:1");
+    expect(packet.randomBeacon.round).toBe("round:1");
+    expect(packet.briefings.map((briefing) => briefing.briefingId)).toEqual(["briefing:red"]);
+    expect(Object.isFrozen(packet)).toBe(true);
+    expect(Object.isFrozen(packet.judgment.anonymizedAggregate)).toBe(true);
+    expect(Object.isFrozen(packet.briefings)).toBe(true);
+    expect(Object.isFrozen(packet.briefings[0])).toBe(true);
+    expect(() => {
+      (packet.judgment.anonymizedAggregate as { method: string }).method = "tampered";
+    }).toThrow();
+    expect(replayPublication(completeJudgmentLog().records(), "judgment:1").packetHash)
+      .toBe(packet.packetHash);
+  });
+
+  it("rejects publication tampering and invalid event ordering", () => {
+    const cases = [
+      ["aggregation method", completeJudgmentLog({ provenanceAggregationMethodOverride: "tampered" })],
+      ["mismatched deliberation", completeJudgmentLog({ provenanceDeliberationRefOverride: "deliberation:stale" })],
+      ["mismatched Draw", completeJudgmentLog({ provenanceDrawRefOverride: "draw:stale" })],
+      ["packet hash", completeJudgmentLog({ provenancePacketHashOverride: "sha256:tampered" })],
+      ["must precede Judgment", completeJudgmentLog({ provenanceAfterJudgment: true })]
+    ] as const;
+
+    for (const [expected, log] of cases) {
+      expect(() => replayPublication(log.records(), "judgment:1")).toThrow(expected);
+    }
+  });
+
+  it("rejects duplicate Provenance and Briefing IDs", () => {
+    expect(() => replayPublication(
+      completeJudgmentLog({ duplicateProvenanceId: true }).records(),
+      "judgment:1"
+    )).toThrow("Provenance IDs contain duplicate ID");
+    expect(() => replayPublication(
+      completeJudgmentLog({ duplicateBriefingId: true }).records(),
+      "judgment:1"
+    )).toThrow("Briefing IDs contain duplicate ID");
   });
 
   it("fails INV-2 when an asymmetric diversity constraint skews pool-share odds", () => {
@@ -676,6 +757,17 @@ function completeJudgmentLog(
     readonly duplicateFirstStandingUse?: boolean;
     readonly omitFirstStandingExpiry?: boolean;
     readonly transferFirstStandingUseTo?: string;
+    readonly omitProvenance?: boolean;
+    readonly provenanceBeaconRoundOverride?: string;
+    readonly provenancePoolEpochRefOverride?: string;
+    readonly provenanceBriefingRefsOverride?: readonly string[];
+    readonly provenanceAggregationMethodOverride?: string;
+    readonly provenanceDeliberationRefOverride?: string;
+    readonly provenanceDrawRefOverride?: string;
+    readonly provenancePacketHashOverride?: string;
+    readonly provenanceAfterJudgment?: boolean;
+    readonly duplicateProvenanceId?: boolean;
+    readonly duplicateBriefingId?: boolean;
   } = {}
 ): AppendOnlyEventLog {
   const log = new AppendOnlyEventLog();
@@ -755,8 +847,7 @@ function completeJudgmentLog(
   log.append(event("RandomBeacon", randomBeacon), signature, {
     appendedAt: "2026-06-14T00:00:40.000Z"
   });
-  log.append(
-    event("Draw", {
+  const draw = event("Draw", {
       beaconRound: randomBeacon.round,
       diversityConstraints,
       drawId: "draw:1",
@@ -765,7 +856,9 @@ function completeJudgmentLog(
       ...(trustFragilityFlags === undefined
         ? {}
         : { trustFragilityFlags: trustFragilityFlags satisfies readonly TrustFragilityFlag[] })
-    }),
+    }).payload;
+  log.append(
+    event("Draw", draw),
     signature,
     { appendedAt: "2026-06-14T00:00:50.000Z" }
   );
@@ -785,29 +878,52 @@ function completeJudgmentLog(
     { appendedAt: "2026-06-14T00:01:00.000Z" }
   );
 
-  log.append(
-    event("Deliberation", {
+  const deliberation = event("Deliberation", {
       agendaRef: "agenda:1",
+      briefingRefs: ["briefing:red"],
       deliberationId: "deliberation:1",
       expertRefs: ["expert:red", "expert:blue"],
       lifecycleState: "SYNTHESIZE",
       panelRef: "draw:1"
-    }),
+    }).payload;
+  log.append(
+    event("Deliberation", deliberation),
     signature,
     { appendedAt: "2026-06-14T00:01:30.000Z" }
   );
 
-  log.append(
-    event("Briefing", {
+  const briefing = event("Briefing", {
       authorRef: "expert:red",
       briefingId: "briefing:red",
       fundingDisclosure: "none",
       options: ["repair now", "defer one cycle"],
       side: "red"
-    }),
+    }).payload;
+  log.append(
+    event("Briefing", briefing),
     signature,
     { appendedAt: "2026-06-14T00:02:00.000Z" }
   );
+
+  if (options.duplicateBriefingId === true) {
+    log.append(event("Briefing", briefing), signature, {
+      appendedAt: "2026-06-14T00:02:05.000Z"
+    });
+  }
+
+  if (options.provenanceBriefingRefsOverride?.includes("briefing:stale") === true) {
+    log.append(
+      event("Briefing", {
+        authorRef: "expert:blue",
+        briefingId: "briefing:stale",
+        fundingDisclosure: "none",
+        options: ["repair now", "defer one cycle"],
+        side: "blue"
+      }),
+      signature,
+      { appendedAt: "2026-06-14T00:02:10.000Z" }
+    );
+  }
 
   log.append(
     event("CurationAct", {
@@ -827,37 +943,93 @@ function completeJudgmentLog(
 
   appendStandingLifecycle(log, selectedPanel, options);
 
-  log.append(
-    event("Judgment", {
-      anonymizedAggregate: {
-        method: "scaffold-bridging-consensus"
-      },
-      attachedCredence: {
-        lower: 0.1,
-        upper: 0.3
-      },
-      bridgingMap: {
-        "repair now": {
-          "geo:coastal": 0.7,
-          "geo:inland": 0.6
-        }
-      },
-      deliberationRef: "deliberation:1",
-      judgmentId: "judgment:1",
-      liveDissent: ["defer one cycle retained minority support"],
-      panelRef: "draw:1",
-      supportDistribution: {
-        "defer one cycle": 0.35,
-        "repair now": 0.65
-      },
-      twoShot: {
-        t0Ref: "claim:t0",
-        t1Ref: "claim:t1"
+  const judgment = event("Judgment", {
+    anonymizedAggregate: {
+      method: "scaffold-bridging-consensus"
+    },
+    attachedCredence: {
+      lower: 0.1,
+      upper: 0.3
+    },
+    bridgingMap: {
+      "repair now": {
+        "geo:coastal": 0.7,
+        "geo:inland": 0.6
       }
-    }),
+    },
+    deliberationRef: "deliberation:1",
+    judgmentId: "judgment:1",
+    liveDissent: ["defer one cycle retained minority support"],
+    panelRef: "draw:1",
+    provenanceRef: "provenance:judgment:1",
+    supportDistribution: {
+      "defer one cycle": 0.35,
+      "repair now": 0.65
+    },
+    twoShot: {
+      t0Ref: "claim:t0",
+      t1Ref: "claim:t1"
+    }
+  }).payload;
+  const builtProvenance = buildProvenance({
+    briefings: [briefing],
+    deliberation,
+    deliberationLogHash: log.headHash() ?? "",
+    draw,
+    judgment,
+    poolEpoch,
+    provenanceId: "provenance:judgment:1",
+    randomBeacon
+  });
+  const provenance = {
+    ...builtProvenance,
+    ...(options.provenanceAggregationMethodOverride === undefined
+      ? {}
+      : { aggregationMethod: options.provenanceAggregationMethodOverride }),
+    ...(options.provenanceBeaconRoundOverride === undefined
+      ? {}
+      : { beaconRound: options.provenanceBeaconRoundOverride }),
+    ...(options.provenanceBriefingRefsOverride === undefined
+      ? {}
+      : { briefingRefs: options.provenanceBriefingRefsOverride }),
+    ...(options.provenanceDeliberationRefOverride === undefined
+      ? {}
+      : { deliberationRef: options.provenanceDeliberationRefOverride }),
+    ...(options.provenanceDrawRefOverride === undefined
+      ? {}
+      : { drawRef: options.provenanceDrawRefOverride }),
+    ...(options.provenancePacketHashOverride === undefined
+      ? {}
+      : { packetHash: options.provenancePacketHashOverride }),
+    ...(options.provenancePoolEpochRefOverride === undefined
+      ? {}
+      : { poolEpochRef: options.provenancePoolEpochRefOverride })
+  };
+  const appendProvenance = (): void => {
+    log.append(
+      event("Provenance", provenance),
+      signature,
+      { appendedAt: "2026-06-14T00:03:50.000Z" }
+    );
+    if (options.duplicateProvenanceId === true) {
+      log.append(event("Provenance", provenance), signature, {
+        appendedAt: "2026-06-14T00:03:51.000Z"
+      });
+    }
+  };
+
+  if (options.omitProvenance !== true && options.provenanceAfterJudgment !== true) {
+    appendProvenance();
+  }
+
+  log.append(
+    event("Judgment", judgment),
     signature,
     { appendedAt: "2026-06-14T00:04:00.000Z" }
   );
+  if (options.omitProvenance !== true && options.provenanceAfterJudgment === true) {
+    appendProvenance();
+  }
 
   const baselineCredenceModel = credenceModelFixture("baseline", 0.2, 0.4);
   appendCredenceModelPacket(log, signature, baselineCredenceModel);

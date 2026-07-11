@@ -83,7 +83,7 @@ its grant window, or left unexpired after publication.
 | Event | Key fields | Enforces |
 |---|---|---|
 | `AgendaItem` | **proposer (attributed)**; framing; challenge_window | C3, M1 (proposer liable) |
-| `Deliberation` | agenda_ref; panel_ref; expert_refs; lifecycle_state | — |
+| `Deliberation` | agenda_ref; panel_ref; expert_refs; **briefing_refs**; lifecycle_state | INV-17 |
 | `Briefing` | author (expert); **side (red/blue)**; funding_disclosure; **options[] (≥2), no recommendation** | M2 |
 | `Claim` | author + role∈{panelist,expert,public,curator}; content; type | §1c |
 | `Rebuttal` | targets claim_ref; content; optional basis_refs[] | INV-6 co-location |
@@ -116,9 +116,24 @@ ties; this ranks record support, not truth.
 | Event | Key fields | Enforces |
 |---|---|---|
 | `Dokimasia` | candidate_ref; vetting-predicate result | C1 |
-| `Judgment` | deliberation_ref; **anonymized aggregate**; **attached credence**; live_dissent[] | B3, M4 #4 |
-| `Provenance` | PoolEpoch_ref; beacon_round; briefing_refs; deliberation_log_hash; aggregation_method | M3 |
+| `Judgment` | deliberation_ref; provenance_ref; **anonymized aggregate**; **attached credence**; live_dissent[] | B3, M3, M4 #4 |
+| `Provenance` | judgment_ref; deliberation_ref; draw_ref; PoolEpoch_ref; beacon_round; briefing_refs; deliberation_log_hash; aggregation_method; packet_version; packet_hash_algorithm; packet_hash | M3, INV-17 |
 | `Euthyna` | deliberation_ref; audit findings (process-followed? interests-disclosed?) | C2 |
+
+Publication is a replayable boundary, not an optional metadata attachment. Every
+`Judgment.provenance_ref` resolves to one `Provenance` event that binds that
+judgment to its `Deliberation` and `Draw`. The provenance pool epoch and beacon
+must exactly match the draw; its briefing set must exactly match the deliberation
+and every briefing must resolve. Its aggregation method matches the judgment,
+and `deliberation_log_hash` commits the event-chain head immediately preceding
+the provenance record. `packet_hash` is SHA-256 over canonical JSON containing
+the packet version, hash algorithm, log-head commitment, aggregation method, and
+resolved judgment, deliberation, draw, pool epoch, beacon, and briefing payloads.
+The `buildProvenance` constructor derives all references and the digest from those
+payloads; `replayPublication(records, judgment_id)` resolves and deeply freezes
+the packet while rejecting digest tampering, invalid event order, duplicate
+`Provenance` IDs, duplicate `Briefing` IDs, and orphaned provenance. `INV-17`
+uses that same replay boundary rather than maintaining a parallel validator.
 
 ---
 
@@ -193,6 +208,7 @@ log.
 | INV-9 | No `TruthVerdict` exists in the schema; only procedural labels w/ cited rule | MODERATION §2 |
 | INV-10 | Every `Judgment` ships with a posterior + dissent; none ships as "settled" | M4 #4 |
 | INV-11 | Pool is stable across independent seed sets (sensitivity check) or the result is flagged untrustworthy | §5.1, A4 §7 |
+| INV-17 | Every `Judgment` resolves a provenance packet matching its deliberation, draw, pool epoch, beacon, briefing set, aggregation method, and preceding log head | M3 |
 
 ---
 
